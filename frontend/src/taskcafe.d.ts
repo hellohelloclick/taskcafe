@@ -206,10 +206,13 @@ type ImpactAction = {
 type ItemElement = {
   id: string;
   parent: null | string;
+  text: string;
+  focus: null | { caret: number | null };
   position: number;
   collapsed: boolean;
   children?: Array<ItemElement>;
 };
+
 type NodeDimensions = {
   entry: React.RefObject<HTMLElement>;
   children: React.RefObject<HTMLElement> | null;

@@ -3,22 +3,7 @@ import { Dot, CaretDown, CaretRight } from 'shared/icons';
 
 import { EntryChildren, EntryWrapper, EntryContent, EntryInnerContent, EntryHandle, ExpandButton } from './Styles';
 import { useDrag } from './useDrag';
-
-function getCaretPosition(editableDiv: any) {
-  let caretPos = 0;
-  let sel: any = null;
-  let range: any = null;
-  if (window.getSelection) {
-    sel = window.getSelection();
-    if (sel && sel.rangeCount) {
-      range = sel.getRangeAt(0);
-      if (range.commonAncestorContainer.parentNode === editableDiv) {
-        caretPos = range.endOffset;
-      }
-    }
-  }
-  return caretPos;
-}
+import { getCaretPosition, setCurrentCursorPosition } from './utils';
 
 type EntryProps = {
   id: string;
@@ -30,21 +15,31 @@ type EntryProps = {
   isRoot?: boolean;
   selection: null | Array<{ id: string }>;
   draggedNodes: null | Array<string>;
+  onNodeFocused: (id: string) => void;
+  text: string;
   entries: Array<ItemElement>;
   onCancelDrag: () => void;
+  autoFocus: null | { caret: null | number };
+  onCreateEntry: (parent: string, nextPositon: number) => void;
   position: number;
   chain?: Array<string>;
+  onDeleteEntry: (depth: number, id: string, text: string, caretPos: number) => void;
   depth?: number;
 };
 
 const Entry: React.FC<EntryProps> = ({
   id,
+  text,
   parentID,
   isRoot = false,
   selection,
   onToggleCollapse,
+  autoFocus,
   onStartSelect,
   position,
+  onNodeFocused,
+  onCreateEntry,
+  onDeleteEntry,
   onCancelDrag,
   onStartDrag,
   collapsed = false,
@@ -59,6 +54,14 @@ const Entry: React.FC<EntryProps> = ({
   useEffect(() => {
     if (isRoot) return;
     if ($entry && $entry.current) {
+      if (autoFocus) {
+        if (autoFocus.caret) {
+          setCurrentCursorPosition($entry.current, autoFocus.caret);
+        } else {
+          $entry.current.focus();
+        }
+        onNodeFocused(id);
+      }
       setNodeDimensions(id, {
         entry: $entry,
         children: entries.length !== 0 ? $children : null,
@@ -102,7 +105,16 @@ const Entry: React.FC<EntryProps> = ({
               onStartSelect({ id, depth });
             }}
             onKeyDown={e => {
-              if (e.key === 'z' && e.ctrlKey) {
+              if (e.keyCode === 13) {
+                e.preventDefault();
+                onCreateEntry(parentID, position * 2);
+              } else if (e.keyCode === 8) {
+                const caretPos = getCaretPosition($entry);
+                if (caretPos === 0 && $entry.current) {
+                  onDeleteEntry(depth, id, $entry.current.innerText, caretPos);
+                  e.preventDefault();
+                }
+              } else if (e.key === 'z' && e.ctrlKey) {
                 if ($entry && $entry.current) {
                   console.log(getCaretPosition($entry.current));
                 }
@@ -120,7 +132,7 @@ const Entry: React.FC<EntryProps> = ({
             contentEditable
             ref={$entry}
           >
-            {`${id.toString()} - ${position}`}
+            {text}
           </EntryInnerContent>
         </EntryContent>
       )}
@@ -130,13 +142,17 @@ const Entry: React.FC<EntryProps> = ({
             .sort((a, b) => a.position - b.position)
             .map(entry => (
               <Entry
+                onDeleteEntry={onDeleteEntry}
                 parentID={id}
                 key={entry.id}
                 position={entry.position}
+                text={entry.text}
                 depth={depth + 1}
                 draggedNodes={draggedNodes}
                 collapsed={entry.collapsed}
                 id={entry.id}
+                autoFocus={entry.focus}
+                onNodeFocused={onNodeFocused}
                 onStartSelect={onStartSelect}
                 onStartDrag={onStartDrag}
                 onCancelDrag={onCancelDrag}
@@ -144,6 +160,7 @@ const Entry: React.FC<EntryProps> = ({
                 chain={[...chain, id]}
                 selection={selection}
                 onToggleCollapse={onToggleCollapse}
+                onCreateEntry={onCreateEntry}
               />
             ))}
         </EntryChildren>

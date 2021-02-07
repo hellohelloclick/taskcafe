@@ -33,6 +33,8 @@ import {
   getNodeOver,
   getCorrectNode,
   findCommonParent,
+  getNodeAbove,
+  findNodeAbove,
 } from './utils';
 import NOOP from 'shared/utils/noop';
 
@@ -50,18 +52,32 @@ type ItemCollapsed = {
 };
 
 const listItems: Array<ItemElement> = [
-  { id: 'root', position: 4096, parent: null, collapsed: false },
-  { id: 'entry-1', position: 4096, parent: 'root', collapsed: false },
-  { id: 'entry-1_3', position: 4096 * 3, parent: 'entry-1', collapsed: false },
-  { id: 'entry-1_3_1', position: 4096, parent: 'entry-1_3', collapsed: false },
-  { id: 'entry-1_3_2', position: 4096 * 2, parent: 'entry-1_3', collapsed: false },
-  { id: 'entry-1_3_3', position: 4096 * 3, parent: 'entry-1_3', collapsed: false },
-  { id: 'entry-1_3_3_1', position: 4096 * 1, parent: 'entry-1_3_3', collapsed: false },
-  { id: 'entry-1_3_3_1_1', position: 4096 * 1, parent: 'entry-1_3_3_1', collapsed: false },
-  { id: 'entry-2', position: 4096 * 2, parent: 'root', collapsed: false },
-  { id: 'entry-3', position: 4096 * 3, parent: 'root', collapsed: false },
-  { id: 'entry-4', position: 4096 * 4, parent: 'root', collapsed: false },
-  { id: 'entry-5', position: 4096 * 5, parent: 'root', collapsed: false },
+  { id: 'root', text: '', position: 4096, parent: null, collapsed: false, focus: null },
+  { id: 'entry-1', text: 'entry-1', position: 4096, parent: 'root', collapsed: false, focus: null },
+  { id: 'entry-1_3', text: 'entry-1_3', position: 4096 * 3, parent: 'entry-1', collapsed: false, focus: null },
+  { id: 'entry-1_3_1', text: 'entry-1_3_1', position: 4096, parent: 'entry-1_3', collapsed: false, focus: null },
+  { id: 'entry-1_3_2', text: 'entry-1_3_2', position: 4096 * 2, parent: 'entry-1_3', collapsed: false, focus: null },
+  { id: 'entry-1_3_3', text: 'entry-1_3_3', position: 4096 * 3, parent: 'entry-1_3', collapsed: false, focus: null },
+  {
+    id: 'entry-1_3_3_1',
+    text: 'entry-1_3_3_1',
+    position: 4096 * 1,
+    parent: 'entry-1_3_3',
+    collapsed: false,
+    focus: null,
+  },
+  {
+    id: 'entry-1_3_3_1_1',
+    text: 'entry-1_3_3_1_1',
+    position: 4096 * 1,
+    parent: 'entry-1_3_3_1',
+    collapsed: false,
+    focus: null,
+  },
+  { id: 'entry-2', text: 'entry-2', position: 4096 * 2, parent: 'root', collapsed: false, focus: null },
+  { id: 'entry-3', text: 'entry-3', position: 4096 * 3, parent: 'root', collapsed: false, focus: null },
+  { id: 'entry-4', text: 'entry-4', position: 4096 * 4, parent: 'root', collapsed: false, focus: null },
+  { id: 'entry-5', text: 'entry-5', position: 4096 * 5, parent: 'root', collapsed: false, focus: null },
 ];
 
 const Outline: React.FC = () => {
@@ -382,6 +398,60 @@ const Outline: React.FC = () => {
             <PageContent>
               <RootWrapper ref={$content}>
                 <Entry
+                  text=""
+                  autoFocus={null}
+                  onDeleteEntry={(depth, id, text, caretPos) => {
+                    console.log(id, text, caretPos);
+                    const nodeDepth = outline.current.nodes.get(depth);
+                    if (nodeDepth) {
+                      const node = nodeDepth.get(id);
+                      if (node) {
+                        const nodeAbove = findNodeAbove(outline.current, depth, node);
+                        setItems(prevItems => {
+                          return produce(prevItems, draftItems => {
+                            draftItems = prevItems.filter(c => c.id !== id);
+                            const idx = prevItems.findIndex(c => c.id === nodeAbove?.id);
+                            if (idx !== -1) {
+                              draftItems[idx] = produce(prevItems[idx], draftItem => {
+                                draftItem.focus = { caret: draftItem.text.length };
+                                if (text !== '') {
+                                  draftItem.text += text;
+                                }
+                              });
+                            }
+                            return draftItems;
+                          });
+                        });
+                      }
+                    }
+                  }}
+                  onCreateEntry={(parent, position) => {
+                    setItems(prevItems =>
+                      produce(prevItems, draftItems => {
+                        draftItems.push({
+                          id: '' + Math.random(),
+                          collapsed: false,
+                          position,
+                          text: '',
+                          focus: {
+                            caret: null,
+                          },
+                          parent,
+                          children: [],
+                        });
+                      }),
+                    );
+                  }}
+                  onNodeFocused={id => {
+                    setItems(prevItems =>
+                      produce(prevItems, draftItems => {
+                        const idx = draftItems.findIndex(c => c.id === id);
+                        draftItems[idx] = produce(draftItems[idx], draftItem => {
+                          draftItem.focus = null;
+                        });
+                      }),
+                    );
+                  }}
                   onStartSelect={({ id, depth }) => {
                     setSelection(null);
                     setSelecting({ isSelecting: true, node: { id, depth } });
