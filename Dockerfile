@@ -5,6 +5,11 @@ COPY frontend .
 RUN yarn install
 RUN yarn build
 
+# Default values. Can be changed during container start.
+ENV POSTGRES_USER=taskcafe \
+    POSTGRES_PASSWORD=taskcafe_test \
+    POSTGRES_DB=taskcafe \
+
 FROM golang:1.14.5-alpine as backend
 WORKDIR /usr/src/app
 COPY go.mod go.mod
